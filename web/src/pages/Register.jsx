@@ -353,13 +353,35 @@ const Register = () => {
                                     }}
                                 >
                                     I agree to the{' '}
-                                    <Link to="#" style={{ color: 'var(--primary)', textDecoration: 'underline' }}>
+                                    <button
+                                        type="button"
+                                        style={{
+                                            color: 'var(--primary)',
+                                            textDecoration: 'underline',
+                                            background: 'transparent',
+                                            border: 'none',
+                                            padding: 0,
+                                            cursor: 'pointer',
+                                            font: 'inherit'
+                                        }}
+                                    >
                                         Terms
-                                    </Link>{' '}
+                                    </button>{' '}
                                     and{' '}
-                                    <Link to="#" style={{ color: 'var(--primary)', textDecoration: 'underline' }}>
+                                    <button
+                                        type="button"
+                                        style={{
+                                            color: 'var(--primary)',
+                                            textDecoration: 'underline',
+                                            background: 'transparent',
+                                            border: 'none',
+                                            padding: 0,
+                                            cursor: 'pointer',
+                                            font: 'inherit'
+                                        }}
+                                    >
                                         Privacy
-                                    </Link>
+                                    </button>
                                 </label>
                             </div>
 

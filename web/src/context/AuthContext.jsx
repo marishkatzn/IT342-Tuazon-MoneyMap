@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect } from 'react';
 
 export const AuthContext = createContext();
+const AUTH_STORAGE_KEY = 'moneymap_user';
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
@@ -10,7 +11,17 @@ export const AuthProvider = ({ children }) => {
     const API_URL = 'http://localhost:8081/api/auth';
 
     useEffect(() => {
-        // Session persistence disabled as per requirement: always start logged out.
+        const storedUser = localStorage.getItem(AUTH_STORAGE_KEY);
+
+        if (storedUser) {
+            try {
+                setUser(JSON.parse(storedUser));
+            } catch (error) {
+                console.error('Failed to restore saved session:', error);
+                localStorage.removeItem(AUTH_STORAGE_KEY);
+            }
+        }
+
         setLoading(false);
     }, []);
 
@@ -28,6 +39,7 @@ export const AuthProvider = ({ children }) => {
             if (response.ok) {
                 const userData = await response.json();
                 setUser(userData);
+                localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userData));
                 return true;
             } else {
                 console.error('Login failed');
@@ -66,6 +78,7 @@ export const AuthProvider = ({ children }) => {
 
     const logout = () => {
         setUser(null);
+        localStorage.removeItem(AUTH_STORAGE_KEY);
     };
 
     return (

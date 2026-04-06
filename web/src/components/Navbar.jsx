@@ -1,18 +1,14 @@
 import React, { useContext, useState, useRef, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import Button from './Button';
 import { User as UserIcon, LogOut, ChevronDown, LayoutDashboard, Settings } from 'lucide-react';
 
 const Navbar = () => {
-    const { user, logout } = useContext(AuthContext);
+    const { user } = useContext(AuthContext);
     const navigate = useNavigate();
     const location = useLocation();
     const [isPopupOpen, setIsPopupOpen] = useState(false);
     const popupRef = useRef(null);
-
-    const isLogin = location.pathname === '/login';
-    const isRegister = location.pathname === '/register';
 
     useEffect(() => {
         const handleClickOutside = (event) => {

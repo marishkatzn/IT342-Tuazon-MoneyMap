@@ -1,5 +1,9 @@
 package com.it342.moneymap.service;
 
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import com.it342.moneymap.dto.AuthResponse;
+import com.it342.moneymap.dto.LoginRequest;
+import com.it342.moneymap.dto.OAuthLoginRequest;
 import com.it342.moneymap.entity.User;
 import com.it342.moneymap.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -15,25 +19,63 @@ public class AuthService {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private JwtService jwtService;
+
+    @Autowired
+    private GoogleTokenVerifierService googleTokenVerifierService;
+
     public User register(User user){
+        if (userRepository.findByEmail(user.getEmail()).isPresent()) {
+            throw new IllegalArgumentException("Email is already registered.");
+        }
+
         user.setPassword(passwordEncoder.encode(user.getPassword()));
+        user.setAuthProvider("LOCAL");
         return userRepository.save(user);
     }
 
-public User login(User user){
+    public AuthResponse login(LoginRequest request){
 
     User existingUser = userRepository
-            .findByEmail(user.getEmail())
+            .findByEmail(request.getEmail())
             .orElse(null);
 
     if(existingUser != null &&
+       existingUser.getPassword() != null &&
        passwordEncoder.matches(
-           user.getPassword(),
+           request.getPassword(),
            existingUser.getPassword()
        )){
-        return existingUser;
+        return new AuthResponse(jwtService.generateToken(existingUser), existingUser);
     }
 
     return null;
 }
+
+    public AuthResponse loginWithGoogle(OAuthLoginRequest request) {
+        GoogleIdToken.Payload payload = googleTokenVerifierService.verify(request.getIdToken());
+        String email = payload.getEmail();
+        String providerSubject = payload.getSubject();
+
+        User user = userRepository.findByProviderSubject(providerSubject)
+            .orElseGet(() -> userRepository.findByEmail(email).orElse(null));
+
+        if (user == null) {
+            user = new User();
+            user.setEmail(email);
+        }
+
+        user.setName((String) payload.get("name"));
+        user.setAuthProvider("GOOGLE");
+        user.setProviderSubject(providerSubject);
+        user.setPictureUrl((String) payload.get("picture"));
+
+        if (user.getPassword() == null || user.getPassword().isBlank()) {
+            user.setPassword(passwordEncoder.encode(providerSubject));
+        }
+
+        User savedUser = userRepository.save(user);
+        return new AuthResponse(jwtService.generateToken(savedUser), savedUser);
+    }
 }

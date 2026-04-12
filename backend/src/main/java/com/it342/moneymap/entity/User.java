@@ -18,6 +18,16 @@ public class User {
     @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.WRITE_ONLY)
     private String password;
 
+    @Column
+    private String authProvider = "LOCAL";
+
+    @Column(unique = true)
+    private String providerSubject;
+
+    @Lob
+    @Column(columnDefinition = "TEXT")
+    private String pictureUrl;
+
     public Long getId() {
         return id;
     }
@@ -48,5 +58,37 @@ public class User {
 
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    public String getAuthProvider() {
+        return authProvider;
+    }
+
+    public void setAuthProvider(String authProvider) {
+        this.authProvider = authProvider;
+    }
+
+    public String getProviderSubject() {
+        return providerSubject;
+    }
+
+    public void setProviderSubject(String providerSubject) {
+        this.providerSubject = providerSubject;
+    }
+
+    public String getPictureUrl() {
+        return pictureUrl;
+    }
+
+    public void setPictureUrl(String pictureUrl) {
+        this.pictureUrl = pictureUrl;
+    }
+
+    @PrePersist
+    @PreUpdate
+    public void applyAuthDefaults() {
+        if (authProvider == null || authProvider.isBlank()) {
+            authProvider = "LOCAL";
+        }
     }
 }

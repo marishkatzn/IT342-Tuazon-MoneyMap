@@ -9,13 +9,12 @@ import com.it342.moneymap.repository.ContributionRepository;
 import com.it342.moneymap.repository.GoalRepository;
 import com.it342.moneymap.repository.NotificationRepository;
 import com.it342.moneymap.repository.UserRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 @Service
 public class ContributionService {
@@ -45,49 +44,66 @@ public class ContributionService {
         Goal goal = goalRepository.findById(dto.getGoalId())
                 .orElseThrow(() -> new RuntimeException("Goal not found"));
 
-        Contribution c = new Contribution();
-        c.setUser(user);
-        c.setGoal(goal);
-        c.setAmount(dto.getAmount());
-        c.setDate(dto.getDate() != null ? dto.getDate() : LocalDate.now());
-        c.setMethod(dto.getMethod());
-        c.setStatus("Success");
+        if (!goal.getUser().getId().equals(user.getId())) {
+            throw new IllegalArgumentException("Goal does not belong to the user.");
+        }
 
-        // Update the Goal's currentAmount
+        if (dto.getAmount() == null || dto.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Contribution amount must be greater than zero.");
+        }
+
+        Contribution contribution = new Contribution();
+        contribution.setUser(user);
+        contribution.setGoal(goal);
+        contribution.setAmount(dto.getAmount());
+        contribution.setDate(dto.getDate() != null ? dto.getDate() : LocalDate.now());
+        contribution.setMethod(dto.getMethod());
+        contribution.setStatus("Success");
+
         BigDecimal oldAmount = goal.getCurrentAmount();
-        BigDecimal newAmount = oldAmount.add(c.getAmount());
+        BigDecimal remainingAmount = goal.getTargetAmount().subtract(oldAmount);
+        if (remainingAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("This goal is already complete.");
+        }
+        if (contribution.getAmount().compareTo(remainingAmount) > 0) {
+            throw new IllegalArgumentException("Contribution exceeds the remaining goal amount.");
+        }
+
+        BigDecimal newAmount = oldAmount.add(contribution.getAmount());
         goal.setCurrentAmount(newAmount);
 
-        // Check for Milestone (e.g. hitting 100%)
-        if (oldAmount.compareTo(goal.getTargetAmount()) < 0 
-            && newAmount.compareTo(goal.getTargetAmount()) >= 0) {
-            // Reached goal!
-            Notification n = new Notification();
-            n.setUser(user);
-            n.setTitle("Goal Reached! " + goal.getIcon());
-            n.setBody("Congratulations! You have reached your target for " + goal.getName() + ".");
-            n.setType("Milestone");
-            n.setIcon("🎉");
-            notificationRepository.save(n);
+        if (oldAmount.compareTo(goal.getTargetAmount()) < 0
+                && newAmount.compareTo(goal.getTargetAmount()) >= 0) {
+            notificationRepository.save(buildGoalCompletedNotification(user, goal));
         }
 
         goalRepository.save(goal);
-        Contribution saved = contributionRepository.save(c);
+        Contribution saved = contributionRepository.save(contribution);
 
         return mapToDto(saved);
     }
 
-    private ContributionDto mapToDto(Contribution c) {
+    private Notification buildGoalCompletedNotification(User user, Goal goal) {
+        Notification notification = new Notification();
+        notification.setUser(user);
+        notification.setTitle(goal.getIcon() + " Goal Completed");
+        notification.setBody("You fully funded " + goal.getName() + " and reached your $" + goal.getTargetAmount().toPlainString() + " target.");
+        notification.setType("Milestone");
+        notification.setIcon(goal.getIcon());
+        return notification;
+    }
+
+    private ContributionDto mapToDto(Contribution contribution) {
         ContributionDto dto = new ContributionDto();
-        dto.setId(c.getId());
-        dto.setUserId(c.getUser().getId());
-        dto.setGoalId(c.getGoal().getId());
-        dto.setGoalName(c.getGoal().getName());
-        dto.setGoalIcon(c.getGoal().getIcon());
-        dto.setAmount(c.getAmount());
-        dto.setDate(c.getDate());
-        dto.setMethod(c.getMethod());
-        dto.setStatus(c.getStatus());
+        dto.setId(contribution.getId());
+        dto.setUserId(contribution.getUser().getId());
+        dto.setGoalId(contribution.getGoal().getId());
+        dto.setGoalName(contribution.getGoal().getName());
+        dto.setGoalIcon(contribution.getGoal().getIcon());
+        dto.setAmount(contribution.getAmount());
+        dto.setDate(contribution.getDate());
+        dto.setMethod(contribution.getMethod());
+        dto.setStatus(contribution.getStatus());
         return dto;
     }
 }

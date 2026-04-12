@@ -1,18 +1,17 @@
 package com.it342.moneymap.repository;
 
-import com.it342.moneymap.entity.Contribution;
+import com.it342.moneymap.entity.Payment;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-
 @Repository
-public interface ContributionRepository extends JpaRepository<Contribution, Long> {
-    List<Contribution> findByUserId(Long userId);
+public interface PaymentRepository extends JpaRepository<Payment, Long> {
+    Optional<Payment> findByCheckoutSessionId(String checkoutSessionId);
 
     @Transactional
     @Modifying
-    void deleteByGoalId(Long goalId);
+    void deleteBySavingsGoalId(Long goalId);
 }

@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useEffect, useRef, useState, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import Input from '../components/Input';
@@ -11,9 +11,46 @@ const Register = () => {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const googleButtonRef = useRef(null);
 
-    const { register } = useContext(AuthContext);
+    const { register, googleLogin } = useContext(AuthContext);
     const navigate = useNavigate();
+    const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
+
+    useEffect(() => {
+        if (!googleClientId || !window.google?.accounts?.id || !googleButtonRef.current) {
+            return undefined;
+        }
+
+        const handleGoogleCredential = async (response) => {
+            const success = await googleLogin(response.credential);
+            if (success) {
+                navigate('/dashboard');
+            } else {
+                alert('Google sign up failed');
+            }
+        };
+
+        window.google.accounts.id.initialize({
+            client_id: googleClientId,
+            callback: handleGoogleCredential,
+        });
+
+        googleButtonRef.current.innerHTML = '';
+        window.google.accounts.id.renderButton(googleButtonRef.current, {
+            theme: 'outline',
+            size: 'large',
+            shape: 'pill',
+            text: 'continue_with',
+            width: 360,
+        });
+
+        return () => {
+            if (window.google?.accounts?.id) {
+                window.google.accounts.id.cancel();
+            }
+        };
+    }, [googleClientId, googleLogin, navigate]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -396,6 +433,42 @@ const Register = () => {
                             >
                                 Create My Account
                             </Button>
+
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '12px',
+                                    margin: '1rem 0',
+                                }}
+                            >
+                                <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.08)' }}></div>
+                                <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.75rem', fontWeight: '700', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                                    Or
+                                </span>
+                                <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.08)' }}></div>
+                            </div>
+
+                            {googleClientId ? (
+                                <div
+                                    ref={googleButtonRef}
+                                    style={{
+                                        display: 'flex',
+                                        justifyContent: 'center',
+                                        minHeight: '44px',
+                                    }}
+                                ></div>
+                            ) : (
+                                <div
+                                    style={{
+                                        textAlign: 'center',
+                                        color: 'rgba(255,255,255,0.45)',
+                                        fontSize: '0.8rem',
+                                    }}
+                                >
+                                    Set <code>REACT_APP_GOOGLE_CLIENT_ID</code> to enable Google sign-in.
+                                </div>
+                            )}
 
                         </form>
 

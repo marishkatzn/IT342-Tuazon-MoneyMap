@@ -30,6 +30,14 @@ public class Income {
 
     private String notes;
 
+    @Column(length = 1200)
+    private String checkoutUrl;
+
+    @Column(unique = true)
+    private String checkoutSessionId;
+
+    private String paymentProvider;
+
     public Long getId() {
         return id;
     }
@@ -92,5 +100,29 @@ public class Income {
 
     public void setNotes(String notes) {
         this.notes = notes;
+    }
+
+    public String getCheckoutUrl() {
+        return checkoutUrl;
+    }
+
+    public void setCheckoutUrl(String checkoutUrl) {
+        this.checkoutUrl = checkoutUrl;
+    }
+
+    public String getCheckoutSessionId() {
+        return checkoutSessionId;
+    }
+
+    public void setCheckoutSessionId(String checkoutSessionId) {
+        this.checkoutSessionId = checkoutSessionId;
+    }
+
+    public String getPaymentProvider() {
+        return paymentProvider;
+    }
+
+    public void setPaymentProvider(String paymentProvider) {
+        this.paymentProvider = paymentProvider;
     }
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import Topbar from '../components/Topbar';
 import { AuthContext } from '../context/AuthContext';
 
@@ -7,42 +7,72 @@ const Income = () => {
 
   const [incomes, setIncomes] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  // Form states
+  const [editingIncomeId, setEditingIncomeId] = useState(null);
   const [sourceName, setSourceName] = useState('');
   const [category, setCategory] = useState('Primary Job');
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState('');
-  const [status, setStatus] = useState('Received');
   const [notes, setNotes] = useState('');
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
-  useEffect(() => {
-    const fetchIncomes = async () => {
-      if (!user?.id) {
-        return;
-      }
-
-      try {
-        const res = await fetch(`http://localhost:8081/api/income/${user.id}`);
-        if (res.ok) {
-          const data = await res.json();
-          setIncomes(data);
-        }
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchIncomes();
-  }, [user]);
-
-  const handleSave = async () => {
-    if (!sourceName || !amount) return;
+  const fetchIncomes = useCallback(async () => {
+    if (!user?.id) {
+      setIncomes([]);
+      setLoading(false);
+      return;
+    }
 
     try {
-      const res = await fetch(`http://localhost:8081/api/income`, {
+      setLoading(true);
+      const res = await fetch(`http://localhost:8081/api/income/${user.id}?t=${Date.now()}`, {
+        cache: 'no-store'
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setIncomes(data);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    fetchIncomes();
+
+    const handleRefresh = () => {
+      fetchIncomes();
+    };
+
+    window.addEventListener('sidebar-refresh', handleRefresh);
+    window.addEventListener('focus', handleRefresh);
+
+    return () => {
+      window.removeEventListener('sidebar-refresh', handleRefresh);
+      window.removeEventListener('focus', handleRefresh);
+    };
+  }, [fetchIncomes]);
+
+  const resetForm = () => {
+    setEditingIncomeId(null);
+    setSourceName('');
+    setCategory('Primary Job');
+    setAmount('');
+    setDate('');
+    setNotes('');
+    setCheckoutLoading(false);
+  };
+
+  const handleCreateIncomeCheckout = async () => {
+    if (!user?.id) {
+      alert('Please log in again.');
+      return;
+    }
+
+    try {
+      setCheckoutLoading(true);
+      const res = await fetch('http://localhost:8081/api/income/create-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -51,27 +81,105 @@ const Income = () => {
           category,
           amount: parseFloat(amount),
           date: date || undefined,
-          status,
           notes
         })
       });
+
+      const raw = await res.text();
+      let payload = {};
+      try {
+        payload = raw ? JSON.parse(raw) : {};
+      } catch {
+        payload = { message: raw };
+      }
+
+      if (!res.ok) {
+        throw new Error(payload.message || 'Unable to create income checkout session.');
+      }
+
+      window.location.href = payload.checkoutUrl;
+    } catch (e) {
+      alert(e.message || 'Unable to create income checkout session.');
+      setCheckoutLoading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!sourceName || !amount) {
+      return;
+    }
+
+    if (editingIncomeId) {
+      try {
+        const res = await fetch(`http://localhost:8081/api/income/${editingIncomeId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: editingIncomeId,
+            userId: user.id,
+            sourceName,
+            category,
+            amount: parseFloat(amount),
+            date: date || undefined,
+            status: incomes.find((income) => income.id === editingIncomeId)?.status || 'Received',
+            notes
+          })
+        });
+
+        if (res.ok) {
+          const savedIncome = await res.json();
+          setIncomes((currentIncomes) => currentIncomes.map((income) => (income.id === editingIncomeId ? savedIncome : income)));
+          window.dispatchEvent(new Event('sidebar-refresh'));
+          resetForm();
+          return;
+        }
+
+        const raw = await res.text();
+        throw new Error(raw || 'Unable to update income.');
+      } catch (e) {
+        console.error(e);
+        alert(e.message || 'Unable to update income.');
+      }
+      return;
+    }
+
+    await handleCreateIncomeCheckout();
+  };
+
+  const handleEditIncome = (income) => {
+    setEditingIncomeId(income.id);
+    setSourceName(income.sourceName);
+    setCategory(income.category || 'Primary Job');
+    setAmount(income.amount);
+    setDate(income.date || '');
+    setNotes(income.notes || '');
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+  };
+
+  const handleDeleteIncome = async (incomeId) => {
+    if (!window.confirm('Delete this income record?')) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`http://localhost:8081/api/income/${incomeId}`, {
+        method: 'DELETE'
+      });
+
       if (res.ok) {
-        const newIncome = await res.json();
-        setIncomes([...incomes, newIncome]);
-        // Reset
-        setSourceName('');
-        setAmount('');
-        setDate('');
-        setNotes('');
+        setIncomes((currentIncomes) => currentIncomes.filter((income) => income.id !== incomeId));
+        if (editingIncomeId === incomeId) {
+          resetForm();
+        }
       }
     } catch (e) {
       console.error(e);
     }
   };
 
-  const totalThisMonth = incomes.reduce((acc, curr) => acc + curr.amount, 0);
-  const pending = incomes.filter(i => i.status === 'Pending').reduce((acc, curr) => acc + curr.amount, 0);
-  const received = incomes.filter(i => i.status === 'Received').reduce((acc, curr) => acc + curr.amount, 0);
+  const totalThisMonth = incomes.reduce((acc, curr) => acc + Number(curr.amount), 0);
+  const pending = incomes.filter((income) => income.status === 'Pending').reduce((acc, curr) => acc + Number(curr.amount), 0);
+  const received = incomes.filter((income) => income.status === 'Received').reduce((acc, curr) => acc + Number(curr.amount), 0);
 
   return (
     <>
@@ -83,65 +191,67 @@ const Income = () => {
       <div className="scroll">
         <div className="grid g12" style={{ marginBottom: '12px' }}>
           <div className="card c4 hl">
-            <div className="sico">💵</div>
+            <div className="sico">$</div>
             <div className="clabel">Total Income</div>
             <div className="sval" style={{ color: 'var(--g)' }}>${totalThisMonth.toFixed(2)}</div>
             <div className="ssub">{incomes.length} income sources</div>
           </div>
           <div className="card c4">
-            <div className="sico">🪙</div>
+            <div className="sico">+</div>
             <div className="clabel">Received</div>
             <div className="sval">${received.toFixed(2)}</div>
             <div className="ssub">Available for savings</div>
           </div>
           <div className="card c4">
-            <div className="sico">⏳</div>
+            <div className="sico">...</div>
             <div className="clabel">Pending</div>
             <div className="sval" style={{ color: 'var(--amber)' }}>${pending.toFixed(2)}</div>
-            <div className="ssub">{incomes.filter(i => i.status === 'Pending').length} sources pending</div>
+            <div className="ssub">{incomes.filter((income) => income.status === 'Pending').length} sources pending</div>
           </div>
         </div>
 
         <div className="grid" style={{ gridTemplateColumns: '1fr 340px', gap: '12px' }}>
-          {/* Income list */}
           <div className="card">
             <div className="ctitle">
               Income Records
             </div>
-            <div className="tbl-head" style={{ gridTemplateColumns: '2fr 1fr 1fr 1fr 80px' }}>
-              <span>Source</span><span>Category</span><span>Date</span><span>Amount</span><span>Status</span>
+            <div className="tbl-head" style={{ gridTemplateColumns: '2fr 1fr 1fr 1fr 120px 140px' }}>
+              <span>Source</span><span>Category</span><span>Date</span><span>Amount</span><span>Status</span><span>Actions</span>
             </div>
-            
-            {loading ? <div style={{padding:"20px"}}>Loading...</div> : incomes.map(inc => (
-              <div key={inc.id} className="tbl-row" style={{ gridTemplateColumns: '2fr 1fr 1fr 1fr 80px' }}>
+
+            {loading ? <div style={{ padding: '20px' }}>Loading...</div> : incomes.map((income) => (
+              <div key={income.id} className="tbl-row" style={{ gridTemplateColumns: '2fr 1fr 1fr 1fr 120px 140px' }}>
                 <div className="tbl-cell" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: inc.status === 'Received' ? 'var(--g)' : 'var(--amber)', boxShadow: inc.status === 'Received' ? '0 0 4px var(--g)' : 'none', flexShrink: 0, display: 'inline-block' }}></span> 
-                  {inc.sourceName}
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: income.status === 'Received' ? 'var(--g)' : 'var(--amber)', boxShadow: income.status === 'Received' ? '0 0 4px var(--g)' : 'none', flexShrink: 0, display: 'inline-block' }}></span>
+                  {income.sourceName}
                 </div>
-                <div className="tbl-cell muted mono">{inc.category}</div>
-                <div className="tbl-cell muted mono">{inc.date}</div>
-                <div className="tbl-cell mono" style={{ color: inc.status === 'Received' ? 'var(--g)' : 'var(--amber)' }}>${inc.amount.toFixed(2)}</div>
+                <div className="tbl-cell muted mono">{income.category}</div>
+                <div className="tbl-cell muted mono">{income.date}</div>
+                <div className="tbl-cell mono" style={{ color: income.status === 'Received' ? 'var(--g)' : 'var(--amber)' }}>${Number(income.amount).toFixed(2)}</div>
                 <div className="tbl-cell">
-                  <span className={`sbadge ${inc.status === 'Received' ? 'g' : 'a'}`}>{inc.status}</span>
+                  <span className={`sbadge ${income.status === 'Received' ? 'g' : 'a'}`}>{income.status}</span>
+                </div>
+                <div className="tbl-cell" style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                  <button className="btn-ghost" style={{ padding: '4px 8px', fontSize: '10px' }} onClick={() => handleEditIncome(income)}>Edit</button>
+                  <button className="btn-ghost" style={{ padding: '4px 8px', fontSize: '10px', color: 'var(--red)' }} onClick={() => handleDeleteIncome(income.id)}>Delete</button>
                 </div>
               </div>
             ))}
 
             {incomes.length === 0 && !loading && (
-              <div style={{padding:"20px", textAlign:"center", color:"var(--muted)", fontSize:"12px"}}>No income records found.</div>
+              <div style={{ padding: '20px', textAlign: 'center', color: 'var(--muted)', fontSize: '12px' }}>No income records found.</div>
             )}
           </div>
 
-          {/* Add income form */}
           <div className="card">
-            <div className="ctitle">Record Income</div>
+            <div className="ctitle">{editingIncomeId ? 'Edit Income' : 'Record Income'}</div>
             <div className="field">
               <div className="flabel">Source Name</div>
-              <input className="finput" placeholder="e.g. Monthly Salary" type="text" value={sourceName} onChange={e => setSourceName(e.target.value)} />
+              <input className="finput" placeholder="e.g. Monthly Salary" type="text" value={sourceName} onChange={(e) => setSourceName(e.target.value)} />
             </div>
             <div className="field">
               <div className="flabel">Category</div>
-              <select className="fselect" value={category} onChange={e => setCategory(e.target.value)}>
+              <select className="fselect" value={category} onChange={(e) => setCategory(e.target.value)}>
                 <option>Primary Job</option>
                 <option>Freelance</option>
                 <option>Bonus</option>
@@ -152,25 +262,26 @@ const Income = () => {
             <div className="frow two">
               <div className="field">
                 <div className="flabel">Amount</div>
-                <input className="finput" placeholder="$0.00" type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} />
+                <input className="finput" placeholder="$0.00" type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
               </div>
               <div className="field">
                 <div className="flabel">Date</div>
-                <input className="finput" type="date" value={date} onChange={e => setDate(e.target.value)} />
+                <input className="finput" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
               </div>
             </div>
-            <div className="field">
-              <div className="flabel">Status</div>
-              <select className="fselect" value={status} onChange={e => setStatus(e.target.value)}>
-                <option>Received</option>
-                <option>Pending</option>
-              </select>
+            <div style={{ marginTop: '-2px', marginBottom: '12px', fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--muted)' }}>
+              {editingIncomeId ? 'Status is preserved from the existing income record.' : 'New income records are saved automatically after PayMongo verification.'}
             </div>
-            <div className="field">
+            <div className="field" style={{ marginBottom: '16px' }}>
               <div className="flabel">Notes (optional)</div>
-              <input className="finput" placeholder="Any additional notes..." type="text" value={notes} onChange={e => setNotes(e.target.value)} />
+              <input className="finput" placeholder="Any additional notes..." type="text" value={notes} onChange={(e) => setNotes(e.target.value)} />
             </div>
-            <button className="btn-pri" onClick={handleSave}>Save Income Record</button>
+            <button className="btn-pri" onClick={handleSave} disabled={checkoutLoading}>
+              {editingIncomeId ? 'Update Income' : checkoutLoading ? 'Redirecting to checkout...' : 'Record Income with PayMongo'}
+            </button>
+            {editingIncomeId && (
+              <button className="btn-ghost" style={{ width: '100%', marginTop: '8px' }} onClick={resetForm}>Cancel edit</button>
+            )}
           </div>
         </div>
       </div>

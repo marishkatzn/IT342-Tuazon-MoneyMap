@@ -3,14 +3,16 @@ package com.it342.moneymap.service;
 import com.it342.moneymap.dto.GoalDto;
 import com.it342.moneymap.entity.Goal;
 import com.it342.moneymap.entity.User;
+import com.it342.moneymap.repository.ContributionRepository;
 import com.it342.moneymap.repository.GoalRepository;
+import com.it342.moneymap.repository.PaymentRepository;
 import com.it342.moneymap.repository.UserRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class GoalService {
@@ -20,6 +22,12 @@ public class GoalService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private ContributionRepository contributionRepository;
+
+    @Autowired
+    private PaymentRepository paymentRepository;
 
     public List<GoalDto> getGoalsByUserId(Long userId) {
         return goalRepository.findByUserId(userId).stream()
@@ -44,8 +52,34 @@ public class GoalService {
         return mapToDto(saved);
     }
 
+    public GoalDto updateGoal(Long id, GoalDto dto) {
+        Goal goal = goalRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Goal not found"));
+
+        if (!goal.getUser().getId().equals(dto.getUserId())) {
+            throw new RuntimeException("Goal does not belong to user");
+        }
+
+        goal.setName(dto.getName());
+        goal.setIcon(dto.getIcon());
+        goal.setTargetAmount(dto.getTargetAmount());
+        goal.setTargetDate(dto.getTargetDate());
+
+        Goal saved = goalRepository.save(goal);
+        return mapToDto(saved);
+    }
+
+    @Transactional
+    public void deleteGoal(Long id) {
+        Goal goal = goalRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Goal not found"));
+
+        paymentRepository.deleteBySavingsGoalId(goal.getId());
+        contributionRepository.deleteByGoalId(goal.getId());
+        goalRepository.delete(goal);
+    }
+
     public void updateAllocations(Long userId, List<GoalDto> allocations) {
-        // In reality, you'd check if sum == 100 or less, but we store it as is for now
         for (GoalDto dto : allocations) {
             Goal goal = goalRepository.findById(dto.getId()).orElse(null);
             if (goal != null && goal.getUser().getId().equals(userId)) {

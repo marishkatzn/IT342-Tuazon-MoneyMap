@@ -1,8 +1,13 @@
 package com.it342.moneymap.controller;
 
+import com.it342.moneymap.dto.AuthResponse;
+import com.it342.moneymap.dto.LoginRequest;
+import com.it342.moneymap.dto.OAuthLoginRequest;
 import com.it342.moneymap.entity.User;
 import com.it342.moneymap.service.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -14,12 +19,31 @@ public class AuthController {
     private AuthService authService;
 
     @PostMapping("/register")
-    public User register(@RequestBody User user){
-        return authService.register(user);
+    public ResponseEntity<?> register(@RequestBody User user){
+        try {
+            return ResponseEntity.ok(authService.register(user));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
+        }
     }
 
     @PostMapping("/login")
-    public User login(@RequestBody User user){
-        return authService.login(user);
+    public ResponseEntity<?> login(@RequestBody LoginRequest request){
+        AuthResponse authResponse = authService.login(request);
+        if (authResponse == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid email or password.");
+        }
+        return ResponseEntity.ok(authResponse);
+    }
+
+    @PostMapping("/oauth/google")
+    public ResponseEntity<?> loginWithGoogle(@RequestBody OAuthLoginRequest request){
+        try {
+            return ResponseEntity.ok(authService.loginWithGoogle(request));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ex.getMessage());
+        } catch (IllegalStateException ex) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ex.getMessage());
+        }
     }
 }

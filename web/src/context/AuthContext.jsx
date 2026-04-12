@@ -1,10 +1,11 @@
 import React, { createContext, useState, useEffect } from 'react';
 
 export const AuthContext = createContext();
-const AUTH_STORAGE_KEY = 'moneymap_user';
+const AUTH_STORAGE_KEY = 'moneymap_auth';
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
+    const [token, setToken] = useState(null);
     const [loading, setLoading] = useState(true);
 
     // Use the backend URL. Default to localhost:8080 if not specified.
@@ -15,7 +16,13 @@ export const AuthProvider = ({ children }) => {
 
         if (storedUser) {
             try {
-                setUser(JSON.parse(storedUser));
+                const savedSession = JSON.parse(storedUser);
+                if (savedSession?.user) {
+                    setUser(savedSession.user);
+                    setToken(savedSession.token || null);
+                } else {
+                    setUser(savedSession);
+                }
             } catch (error) {
                 console.error('Failed to restore saved session:', error);
                 localStorage.removeItem(AUTH_STORAGE_KEY);
@@ -25,6 +32,34 @@ export const AuthProvider = ({ children }) => {
         setLoading(false);
     }, []);
 
+    const persistSession = (authData) => {
+        const sessionData = {
+            ...authData,
+            loginAt: authData.loginAt || new Date().toISOString()
+        };
+        setUser(sessionData.user);
+        setToken(sessionData.token);
+        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(sessionData));
+    };
+
+    const updateUser = (updatedUser) => {
+        setUser(updatedUser);
+        const storedUser = localStorage.getItem(AUTH_STORAGE_KEY);
+        if (!storedUser) {
+            return;
+        }
+
+        try {
+            const savedSession = JSON.parse(storedUser);
+            const nextSession = savedSession?.user
+                ? { ...savedSession, user: updatedUser }
+                : { user: updatedUser, token };
+            localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(nextSession));
+        } catch (error) {
+            console.error('Failed to persist updated user session:', error);
+        }
+    };
+
     const login = async (email, password) => {
         try {
             const response = await fetch(`${API_URL}/login`, {
@@ -32,14 +67,12 @@ export const AuthProvider = ({ children }) => {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                // The backend expects a User object with email and password
                 body: JSON.stringify({ email, password }),
             });
 
             if (response.ok) {
-                const userData = await response.json();
-                setUser(userData);
-                localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userData));
+                const authData = await response.json();
+                persistSession(authData);
                 return true;
             } else {
                 console.error('Login failed');
@@ -47,6 +80,30 @@ export const AuthProvider = ({ children }) => {
             }
         } catch (error) {
             console.error('Login error:', error);
+            return false;
+        }
+    };
+
+    const googleLogin = async (idToken) => {
+        try {
+            const response = await fetch(`${API_URL}/oauth/google`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ idToken }),
+            });
+
+            if (response.ok) {
+                const authData = await response.json();
+                persistSession(authData);
+                return true;
+            }
+
+            console.error('Google login failed');
+            return false;
+        } catch (error) {
+            console.error('Google login error:', error);
             return false;
         }
     };
@@ -78,11 +135,12 @@ export const AuthProvider = ({ children }) => {
 
     const logout = () => {
         setUser(null);
+        setToken(null);
         localStorage.removeItem(AUTH_STORAGE_KEY);
     };
 
     return (
-        <AuthContext.Provider value={{ user, login, register, logout, loading }}>
+        <AuthContext.Provider value={{ user, token, login, googleLogin, register, logout, updateUser, loading }}>
             {!loading && children}
         </AuthContext.Provider>
     );

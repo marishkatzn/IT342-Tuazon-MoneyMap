@@ -2,15 +2,16 @@ package com.it342.moneymap.controller;
 
 import com.it342.moneymap.dto.GoalDto;
 import com.it342.moneymap.service.GoalService;
+import java.util.List;
+import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("/api/goals")
-@CrossOrigin(origins = "*") // Allows React frontend to hit the endpoint
+@CrossOrigin(origins = "*")
 public class GoalController {
 
     @Autowired
@@ -22,8 +23,31 @@ public class GoalController {
     }
 
     @PostMapping
-    public ResponseEntity<GoalDto> addGoal(@RequestBody GoalDto goalDto) {
-        return ResponseEntity.ok(goalService.createGoal(goalDto));
+    public ResponseEntity<?> addGoal(@RequestBody GoalDto goalDto) {
+        try {
+            return ResponseEntity.ok(goalService.createGoal(goalDto));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().body(Map.of("message", ex.getMessage()));
+        } catch (RuntimeException ex) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", ex.getMessage()));
+        }
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updateGoal(@PathVariable Long id, @RequestBody GoalDto goalDto) {
+        try {
+            return ResponseEntity.ok(goalService.updateGoal(id, goalDto));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().body(Map.of("message", ex.getMessage()));
+        } catch (RuntimeException ex) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", ex.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteGoal(@PathVariable Long id) {
+        goalService.deleteGoal(id);
+        return ResponseEntity.noContent().build();
     }
 
     @PutMapping("/{userId}/allocations")

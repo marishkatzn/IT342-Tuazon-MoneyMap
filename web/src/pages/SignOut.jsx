@@ -1,6 +1,7 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
+import { apiFetch } from '../lib/api';
 
 const AUTH_STORAGE_KEY = 'moneymap_auth';
 
@@ -20,8 +21,8 @@ const SignOut = () => {
 
       try {
         const [goalsResponse, contributionsResponse] = await Promise.all([
-          fetch(`http://localhost:8081/api/goals/${user.id}`),
-          fetch(`http://localhost:8081/api/contributions/${user.id}`)
+          apiFetch(`/goals/${user.id}`),
+          apiFetch(`/contributions/${user.id}`)
         ]);
 
         const goals = goalsResponse.ok ? await goalsResponse.json() : [];
@@ -57,7 +58,7 @@ const SignOut = () => {
 
   const sessionStartedLabel = useMemo(() => {
     try {
-      const storedSession = localStorage.getItem(AUTH_STORAGE_KEY);
+      const storedSession = sessionStorage.getItem(AUTH_STORAGE_KEY);
       if (!storedSession) {
         return 'Current session';
       }

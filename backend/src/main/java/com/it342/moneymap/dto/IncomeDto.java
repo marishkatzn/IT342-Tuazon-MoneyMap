@@ -12,6 +12,7 @@ public class IncomeDto {
     private LocalDate date;
     private String status;
     private String notes;
+    private String checkoutUrl;
 
     public Long getId() {
         return id;
@@ -75,5 +76,13 @@ public class IncomeDto {
 
     public void setNotes(String notes) {
         this.notes = notes;
+    }
+
+    public String getCheckoutUrl() {
+        return checkoutUrl;
+    }
+
+    public void setCheckoutUrl(String checkoutUrl) {
+        this.checkoutUrl = checkoutUrl;
     }
 }

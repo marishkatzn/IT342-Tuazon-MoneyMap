@@ -1,34 +1,33 @@
 import React, { createContext, useState, useEffect } from 'react';
+import { apiFetch } from '../lib/api';
 
 export const AuthContext = createContext();
 const AUTH_STORAGE_KEY = 'moneymap_auth';
+
+const sanitizeUserForStorage = (user) => {
+    if (!user) {
+        return user;
+    }
+
+    const { pictureUrl, ...safeUser } = user;
+    return safeUser;
+};
+
+const buildStoredSession = (sessionData) => ({
+    ...sessionData,
+    user: sanitizeUserForStorage(sessionData.user)
+});
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [token, setToken] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    // Use the backend URL. Default to localhost:8080 if not specified.
-    const API_URL = 'http://localhost:8081/api/auth';
-
     useEffect(() => {
-        const storedUser = localStorage.getItem(AUTH_STORAGE_KEY);
-
-        if (storedUser) {
-            try {
-                const savedSession = JSON.parse(storedUser);
-                if (savedSession?.user) {
-                    setUser(savedSession.user);
-                    setToken(savedSession.token || null);
-                } else {
-                    setUser(savedSession);
-                }
-            } catch (error) {
-                console.error('Failed to restore saved session:', error);
-                localStorage.removeItem(AUTH_STORAGE_KEY);
-            }
-        }
-
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+        sessionStorage.removeItem(AUTH_STORAGE_KEY);
+        setUser(null);
+        setToken(null);
         setLoading(false);
     }, []);
 
@@ -39,12 +38,12 @@ export const AuthProvider = ({ children }) => {
         };
         setUser(sessionData.user);
         setToken(sessionData.token);
-        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(sessionData));
+        sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(buildStoredSession(sessionData)));
     };
 
     const updateUser = (updatedUser) => {
         setUser(updatedUser);
-        const storedUser = localStorage.getItem(AUTH_STORAGE_KEY);
+        const storedUser = sessionStorage.getItem(AUTH_STORAGE_KEY);
         if (!storedUser) {
             return;
         }
@@ -52,9 +51,9 @@ export const AuthProvider = ({ children }) => {
         try {
             const savedSession = JSON.parse(storedUser);
             const nextSession = savedSession?.user
-                ? { ...savedSession, user: updatedUser }
-                : { user: updatedUser, token };
-            localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(nextSession));
+                ? { ...savedSession, user: sanitizeUserForStorage(updatedUser) }
+                : { user: sanitizeUserForStorage(updatedUser), token };
+            sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(nextSession));
         } catch (error) {
             console.error('Failed to persist updated user session:', error);
         }
@@ -62,13 +61,10 @@ export const AuthProvider = ({ children }) => {
 
     const login = async (email, password) => {
         try {
-            const response = await fetch(`${API_URL}/login`, {
+            const response = await apiFetch('/auth/login', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ email, password }),
-            });
+                body: { email, password },
+            }, { auth: false });
 
             if (response.ok) {
                 const authData = await response.json();
@@ -86,13 +82,10 @@ export const AuthProvider = ({ children }) => {
 
     const googleLogin = async (idToken) => {
         try {
-            const response = await fetch(`${API_URL}/oauth/google`, {
+            const response = await apiFetch('/auth/oauth/google', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ idToken }),
-            });
+                body: { idToken },
+            }, { auth: false });
 
             if (response.ok) {
                 const authData = await response.json();
@@ -110,14 +103,10 @@ export const AuthProvider = ({ children }) => {
 
     const register = async (name, email, password) => {
         try {
-            const response = await fetch(`${API_URL}/register`, {
+            const response = await apiFetch('/auth/register', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                // The backend expects a User object
-                body: JSON.stringify({ name, email, password }),
-            });
+                body: { name, email, password },
+            }, { auth: false });
 
             if (response.ok) {
                 // Return true to indicate success, but do NOT log the user in automatically.
@@ -137,6 +126,7 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
         setToken(null);
         localStorage.removeItem(AUTH_STORAGE_KEY);
+        sessionStorage.removeItem(AUTH_STORAGE_KEY);
     };
 
     return (

@@ -1,16 +1,14 @@
 package com.it342.moneymap.dto;
 
-import com.it342.moneymap.entity.User;
-
 public class AuthResponse {
 
     private String token;
-    private User user;
+    private UserProfileDto user;
 
     public AuthResponse() {
     }
 
-    public AuthResponse(String token, User user) {
+    public AuthResponse(String token, UserProfileDto user) {
         this.token = token;
         this.user = user;
     }
@@ -23,11 +21,11 @@ public class AuthResponse {
         this.token = token;
     }
 
-    public User getUser() {
+    public UserProfileDto getUser() {
         return user;
     }
 
-    public void setUser(User user) {
+    public void setUser(UserProfileDto user) {
         this.user = user;
     }
 }

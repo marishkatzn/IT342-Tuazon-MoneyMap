@@ -4,6 +4,7 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.it342.moneymap.dto.AuthResponse;
 import com.it342.moneymap.dto.LoginRequest;
 import com.it342.moneymap.dto.OAuthLoginRequest;
+import com.it342.moneymap.dto.UserProfileDto;
 import com.it342.moneymap.entity.User;
 import com.it342.moneymap.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -47,7 +48,7 @@ public class AuthService {
            request.getPassword(),
            existingUser.getPassword()
        )){
-        return new AuthResponse(jwtService.generateToken(existingUser), existingUser);
+        return new AuthResponse(jwtService.generateToken(existingUser), mapToAuthUser(existingUser));
     }
 
     return null;
@@ -76,6 +77,15 @@ public class AuthService {
         }
 
         User savedUser = userRepository.save(user);
-        return new AuthResponse(jwtService.generateToken(savedUser), savedUser);
+        return new AuthResponse(jwtService.generateToken(savedUser), mapToAuthUser(savedUser));
+    }
+
+    private UserProfileDto mapToAuthUser(User user) {
+        UserProfileDto dto = new UserProfileDto();
+        dto.setId(user.getId());
+        dto.setName(user.getName());
+        dto.setEmail(user.getEmail());
+        dto.setAuthProvider(user.getAuthProvider());
+        return dto;
     }
 }

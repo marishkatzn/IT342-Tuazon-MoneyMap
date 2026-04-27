@@ -11,7 +11,6 @@ import Success from './pages/Success';
 import Dashboard from './pages/Dashboard';
 import Income from './pages/Income';
 import Goals from './pages/Goals';
-import Allocation from './pages/Allocation';
 import Contributions from './pages/Contributions';
 import Notifications from './pages/Notifications';
 import Profile from './pages/Profile';
@@ -20,6 +19,7 @@ import SignOut from './pages/SignOut';
 // Layouts and Guards
 import DashboardLayout from './components/DashboardLayout';
 import ProtectedRoute from './components/ProtectedRoute';
+import PublicRoute from './components/PublicRoute';
 
 import './App.css';
 
@@ -29,9 +29,30 @@ function App() {
       <AuthProvider>
         <Routes>
           {/* Public Routes */}
-          <Route path="/" element={<Navigate to="/register" replace />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+          <Route
+            path="/"
+            element={
+              <PublicRoute>
+                <Navigate to="/register" replace />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/login"
+            element={
+              <PublicRoute>
+                <Login />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/register"
+            element={
+              <PublicRoute>
+                <Register />
+              </PublicRoute>
+            }
+          />
           <Route path="/success" element={<Success />} />
           
           {/* Protected Dashboard Routes */}
@@ -39,7 +60,6 @@ function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/income" element={<Income />} />
             <Route path="/goals" element={<Goals />} />
-            <Route path="/allocation" element={<Allocation />} />
             <Route path="/contributions" element={<Contributions />} />
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/profile" element={<Profile />} />

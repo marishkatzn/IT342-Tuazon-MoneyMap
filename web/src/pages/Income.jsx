@@ -1,17 +1,19 @@
 import React, { useState, useEffect, useContext, useCallback } from 'react';
 import Topbar from '../components/Topbar';
 import { AuthContext } from '../context/AuthContext';
+import { apiFetch } from '../lib/api';
+
+const getTodayDate = () => new Date().toISOString().split('T')[0];
 
 const Income = () => {
   const { user } = useContext(AuthContext);
 
   const [incomes, setIncomes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [editingIncomeId, setEditingIncomeId] = useState(null);
-  const [sourceName, setSourceName] = useState('');
-  const [category, setCategory] = useState('Primary Job');
+  const [sourceName, setSourceName] = useState('PayMongo');
+  const [category, setCategory] = useState('Savings Deposit');
   const [amount, setAmount] = useState('');
-  const [date, setDate] = useState('');
+  const [date, setDate] = useState(getTodayDate());
   const [notes, setNotes] = useState('');
   const [checkoutLoading, setCheckoutLoading] = useState(false);
 
@@ -24,7 +26,7 @@ const Income = () => {
 
     try {
       setLoading(true);
-      const res = await fetch(`http://localhost:8081/api/income/${user.id}?t=${Date.now()}`, {
+      const res = await apiFetch(`/income/${user.id}?t=${Date.now()}`, {
         cache: 'no-store'
       });
       if (res.ok) {
@@ -55,11 +57,10 @@ const Income = () => {
   }, [fetchIncomes]);
 
   const resetForm = () => {
-    setEditingIncomeId(null);
-    setSourceName('');
-    setCategory('Primary Job');
+    setSourceName('PayMongo');
+    setCategory('Savings Deposit');
     setAmount('');
-    setDate('');
+    setDate(getTodayDate());
     setNotes('');
     setCheckoutLoading(false);
   };
@@ -72,17 +73,16 @@ const Income = () => {
 
     try {
       setCheckoutLoading(true);
-      const res = await fetch('http://localhost:8081/api/income/create-checkout', {
+      const res = await apiFetch('/income/create-checkout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: {
           userId: user.id,
           sourceName,
           category,
           amount: parseFloat(amount),
           date: date || undefined,
           notes
-        })
+        }
       });
 
       const raw = await res.text();
@@ -98,6 +98,7 @@ const Income = () => {
       }
 
       window.location.href = payload.checkoutUrl;
+      resetForm();
     } catch (e) {
       alert(e.message || 'Unable to create income checkout session.');
       setCheckoutLoading(false);
@@ -105,76 +106,19 @@ const Income = () => {
   };
 
   const handleSave = async () => {
-    if (!sourceName || !amount) {
-      return;
-    }
-
-    if (editingIncomeId) {
-      try {
-        const res = await fetch(`http://localhost:8081/api/income/${editingIncomeId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: editingIncomeId,
-            userId: user.id,
-            sourceName,
-            category,
-            amount: parseFloat(amount),
-            date: date || undefined,
-            status: incomes.find((income) => income.id === editingIncomeId)?.status || 'Received',
-            notes
-          })
-        });
-
-        if (res.ok) {
-          const savedIncome = await res.json();
-          setIncomes((currentIncomes) => currentIncomes.map((income) => (income.id === editingIncomeId ? savedIncome : income)));
-          window.dispatchEvent(new Event('sidebar-refresh'));
-          resetForm();
-          return;
-        }
-
-        const raw = await res.text();
-        throw new Error(raw || 'Unable to update income.');
-      } catch (e) {
-        console.error(e);
-        alert(e.message || 'Unable to update income.');
-      }
+    if (!amount) {
       return;
     }
 
     await handleCreateIncomeCheckout();
   };
 
-  const handleEditIncome = (income) => {
-    setEditingIncomeId(income.id);
-    setSourceName(income.sourceName);
-    setCategory(income.category || 'Primary Job');
-    setAmount(income.amount);
-    setDate(income.date || '');
-    setNotes(income.notes || '');
-    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-  };
-
-  const handleDeleteIncome = async (incomeId) => {
-    if (!window.confirm('Delete this income record?')) {
+  const handleIncomeRowClick = (income) => {
+    if (income.status !== 'Pending' || !income.checkoutUrl) {
       return;
     }
 
-    try {
-      const res = await fetch(`http://localhost:8081/api/income/${incomeId}`, {
-        method: 'DELETE'
-      });
-
-      if (res.ok) {
-        setIncomes((currentIncomes) => currentIncomes.filter((income) => income.id !== incomeId));
-        if (editingIncomeId === incomeId) {
-          resetForm();
-        }
-      }
-    } catch (e) {
-      console.error(e);
-    }
+    window.location.href = income.checkoutUrl;
   };
 
   const totalThisMonth = incomes.reduce((acc, curr) => acc + Number(curr.amount), 0);
@@ -194,7 +138,7 @@ const Income = () => {
             <div className="sico">$</div>
             <div className="clabel">Total Income</div>
             <div className="sval" style={{ color: 'var(--g)' }}>${totalThisMonth.toFixed(2)}</div>
-            <div className="ssub">{incomes.length} income sources</div>
+            <div className="ssub">{incomes.length} PayMongo records</div>
           </div>
           <div className="card c4">
             <div className="sico">+</div>
@@ -215,25 +159,32 @@ const Income = () => {
             <div className="ctitle">
               Income Records
             </div>
-            <div className="tbl-head" style={{ gridTemplateColumns: '2fr 1fr 1fr 1fr 120px 140px' }}>
-              <span>Source</span><span>Category</span><span>Date</span><span>Amount</span><span>Status</span><span>Actions</span>
+            <div className="tbl-head" style={{ gridTemplateColumns: '1fr 2fr 1fr 1fr 120px' }}>
+              <span>Income Type</span><span>Provider</span><span>Date</span><span>Amount</span><span>Status</span>
             </div>
 
             {loading ? <div style={{ padding: '20px' }}>Loading...</div> : incomes.map((income) => (
-              <div key={income.id} className="tbl-row" style={{ gridTemplateColumns: '2fr 1fr 1fr 1fr 120px 140px' }}>
+              <div
+                key={income.id}
+                className="tbl-row"
+                style={{
+                  gridTemplateColumns: '1fr 2fr 1fr 1fr 120px',
+                  cursor: income.status === 'Pending' && income.checkoutUrl ? 'pointer' : 'default'
+                }}
+                onClick={() => handleIncomeRowClick(income)}
+                title={income.status === 'Pending' && income.checkoutUrl ? 'Click to retry this transaction' : undefined}
+              >
                 <div className="tbl-cell" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: income.status === 'Received' ? 'var(--g)' : 'var(--amber)', boxShadow: income.status === 'Received' ? '0 0 4px var(--g)' : 'none', flexShrink: 0, display: 'inline-block' }}></span>
-                  {income.sourceName}
+                  {income.category}
                 </div>
-                <div className="tbl-cell muted mono">{income.category}</div>
+                <div className="tbl-cell muted mono">
+                  {income.sourceName || 'PayMongo'}
+                </div>
                 <div className="tbl-cell muted mono">{income.date}</div>
                 <div className="tbl-cell mono" style={{ color: income.status === 'Received' ? 'var(--g)' : 'var(--amber)' }}>${Number(income.amount).toFixed(2)}</div>
                 <div className="tbl-cell">
                   <span className={`sbadge ${income.status === 'Received' ? 'g' : 'a'}`}>{income.status}</span>
-                </div>
-                <div className="tbl-cell" style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-                  <button className="btn-ghost" style={{ padding: '4px 8px', fontSize: '10px' }} onClick={() => handleEditIncome(income)}>Edit</button>
-                  <button className="btn-ghost" style={{ padding: '4px 8px', fontSize: '10px', color: 'var(--red)' }} onClick={() => handleDeleteIncome(income.id)}>Delete</button>
                 </div>
               </div>
             ))}
@@ -244,44 +195,39 @@ const Income = () => {
           </div>
 
           <div className="card">
-            <div className="ctitle">{editingIncomeId ? 'Edit Income' : 'Record Income'}</div>
-            <div className="field">
-              <div className="flabel">Source Name</div>
-              <input className="finput" placeholder="e.g. Monthly Salary" type="text" value={sourceName} onChange={(e) => setSourceName(e.target.value)} />
-            </div>
+            <div className="ctitle">Record Income</div>
             <div className="field">
               <div className="flabel">Category</div>
               <select className="fselect" value={category} onChange={(e) => setCategory(e.target.value)}>
-                <option>Primary Job</option>
-                <option>Freelance</option>
-                <option>Bonus</option>
-                <option>Investment</option>
-                <option>Other</option>
+                <option>Allowance</option>
+                <option>Salary</option>
+                <option>Extra Money</option>
               </select>
+            </div>
+            <div className="field">
+              <div className="flabel">Provider</div>
+              <input className="finput" type="text" value={sourceName} readOnly />
             </div>
             <div className="frow two">
               <div className="field">
                 <div className="flabel">Amount</div>
-                <input className="finput" placeholder="$0.00" type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
+                <input className="finput" placeholder="$0.00" type="number" step="1" min="1" value={amount} onChange={(e) => setAmount(e.target.value)} />
               </div>
               <div className="field">
                 <div className="flabel">Date</div>
-                <input className="finput" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+                <input className="finput" type="date" value={date} readOnly disabled />
               </div>
             </div>
             <div style={{ marginTop: '-2px', marginBottom: '12px', fontFamily: "'DM Mono', monospace", fontSize: '9px', color: 'var(--muted)' }}>
-              {editingIncomeId ? 'Status is preserved from the existing income record.' : 'New income records are saved automatically after PayMongo verification.'}
+              New income records are saved automatically after PayMongo verification.
             </div>
             <div className="field" style={{ marginBottom: '16px' }}>
               <div className="flabel">Notes (optional)</div>
               <input className="finput" placeholder="Any additional notes..." type="text" value={notes} onChange={(e) => setNotes(e.target.value)} />
             </div>
             <button className="btn-pri" onClick={handleSave} disabled={checkoutLoading}>
-              {editingIncomeId ? 'Update Income' : checkoutLoading ? 'Redirecting to checkout...' : 'Record Income with PayMongo'}
+              {checkoutLoading ? 'Redirecting to checkout...' : 'Record Income with PayMongo'}
             </button>
-            {editingIncomeId && (
-              <button className="btn-ghost" style={{ width: '100%', marginTop: '8px' }} onClick={resetForm}>Cancel edit</button>
-            )}
           </div>
         </div>
       </div>

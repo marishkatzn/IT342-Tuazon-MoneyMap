@@ -2,6 +2,9 @@ import React, { useContext, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Topbar from '../components/Topbar';
 import { AuthContext } from '../context/AuthContext';
+import { apiFetch } from '../lib/api';
+
+const MAX_PROFILE_IMAGE_BYTES = 2 * 1024 * 1024;
 
 const Profile = () => {
   const { user, updateUser } = useContext(AuthContext);
@@ -10,6 +13,7 @@ const Profile = () => {
   const [pictureUrl, setPictureUrl] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingPicture, setUploadingPicture] = useState(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -18,7 +22,7 @@ const Profile = () => {
       }
 
       try {
-        const res = await fetch(`http://localhost:8081/api/user/${user.id}`);
+        const res = await apiFetch(`/user/${user.id}`);
         if (!res.ok) {
           throw new Error('Unable to load profile.');
         }
@@ -40,19 +44,64 @@ const Profile = () => {
     fetchProfile();
   }, [user]);
 
-  const handleImageUpload = (event) => {
+  const handleImageUpload = async (event) => {
     const file = event.target.files?.[0];
     if (!file) {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        setPictureUrl(reader.result);
+    if (!user?.id) {
+      alert('Please sign in again before uploading a profile picture.');
+      return;
+    }
+
+    if (file.size > MAX_PROFILE_IMAGE_BYTES) {
+      event.target.value = '';
+      alert('Profile picture is too large. Please choose an image under 2MB.');
+      return;
+    }
+
+    try {
+      setUploadingPicture(true);
+      const previewUrl = URL.createObjectURL(file);
+      setPictureUrl(previewUrl);
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await apiFetch(`/user/${user.id}/profile-picture`, {
+        method: 'POST',
+        body: formData
+      });
+
+      const raw = await res.text();
+      let payload = {};
+      try {
+        payload = raw ? JSON.parse(raw) : {};
+      } catch {
+        payload = { message: raw };
       }
-    };
-    reader.readAsDataURL(file);
+
+      if (!res.ok) {
+        throw new Error(payload.message || 'Unable to upload profile picture.');
+      }
+
+      setPictureUrl(payload.pictureUrl || '');
+      updateUser({
+        ...user,
+        name: payload.name,
+        email: payload.email,
+        pictureUrl: payload.pictureUrl,
+        authProvider: payload.authProvider
+      });
+      window.dispatchEvent(new Event('sidebar-refresh'));
+    } catch (error) {
+      setPictureUrl(user.pictureUrl || '');
+      alert(error.message || 'Unable to upload profile picture.');
+    } finally {
+      setUploadingPicture(false);
+      event.target.value = '';
+    }
   };
 
   const handleSave = async () => {
@@ -62,14 +111,15 @@ const Profile = () => {
 
     try {
       setSaving(true);
-      const res = await fetch(`http://localhost:8081/api/user/${user.id}`, {
+      const res = await apiFetch(`/user/${user.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: {
           name,
           email,
-          pictureUrl
-        })
+          pictureUrl: pictureUrl && !pictureUrl.startsWith('data:') && !pictureUrl.startsWith('blob:')
+            ? pictureUrl
+            : null
+        }
       });
 
       const raw = await res.text();
@@ -175,8 +225,8 @@ const Profile = () => {
 
             <div style={{ padding: '0 20px 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <label className="btn-ghost" style={{ width: '100%', textAlign: 'center', cursor: 'pointer' }}>
-                Upload Profile Picture
-                <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} />
+                {uploadingPicture ? 'Uploading...' : 'Upload Profile Picture'}
+                <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleImageUpload} disabled={uploadingPicture} style={{ display: 'none' }} />
               </label>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
@@ -250,7 +300,7 @@ const Profile = () => {
                   <div className="flabel">Email</div>
                   <input className="finput" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
                 </div>
-                <button className="btn-pri" onClick={handleSave} disabled={saving} style={{ marginTop: '14px' }}>
+                <button className="btn-pri" onClick={handleSave} disabled={saving || uploadingPicture} style={{ marginTop: '14px' }}>
                   {saving ? 'Saving...' : 'Save Profile'}
                 </button>
               </>

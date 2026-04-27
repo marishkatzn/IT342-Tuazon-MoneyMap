@@ -5,6 +5,7 @@ import Input from "../components/Input";
 import Button from "../components/Button";
 import Layout from "../components/Layout";
 import { Mail, Lock } from "lucide-react";
+import logoImage from "../assets/m-logo.png";
 
 const Login = () => {
     const [email, setEmail] = useState("");
@@ -84,6 +85,24 @@ const Login = () => {
                     }}
                 >
                     <div style={{ maxWidth: "540px" }}>
+                        <div
+                            style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "12px",
+                                marginBottom: "1.5rem",
+                                padding: "10px 14px",
+                                borderRadius: "18px",
+                                background: "rgba(255,255,255,0.03)",
+                                border: "1px solid rgba(255,255,255,0.08)",
+                            }}
+                        >
+                            <img src={logoImage} alt="MoneyMap logo" style={{ width: "42px", height: "42px", objectFit: "contain", display: "block" }} />
+                            <div>
+                                <div style={{ fontSize: "1.15rem", fontWeight: "800", color: "#ffffff", letterSpacing: "-0.03em" }}>MoneyMap</div>
+                                <div style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.38)", letterSpacing: "0.14em", textTransform: "uppercase" }}>Savings Tracker</div>
+                            </div>
+                        </div>
 
                         <div
                             style={{

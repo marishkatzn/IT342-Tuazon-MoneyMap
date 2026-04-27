@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import Topbar from '../components/Topbar';
 import { AuthContext } from '../context/AuthContext';
+import { apiFetch } from '../lib/api';
 
 const Notifications = () => {
   const { user } = useContext(AuthContext);
@@ -15,7 +16,7 @@ const Notifications = () => {
       }
 
       try {
-        const res = await fetch(`http://localhost:8081/api/notifications/${user.id}`);
+        const res = await apiFetch(`/notifications/${user.id}`);
         if (res.ok) {
           setNotifications(await res.json());
         }

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { apiFetch } from '../lib/api';
 
 const Success = () => {
   const [searchParams] = useSearchParams();
@@ -14,12 +15,12 @@ const Success = () => {
     const config = flow === 'income'
       ? {
           id: incomeId,
-          endpoint: 'http://localhost:8081/api/income/success',
+          endpoint: '/income/success',
           body: { incomeId: Number(incomeId) }
         }
       : {
           id: paymentId,
-          endpoint: 'http://localhost:8081/api/payments/success',
+          endpoint: '/payments/success',
           body: { paymentId: Number(paymentId) }
         };
 
@@ -31,12 +32,9 @@ const Success = () => {
 
     const confirmPayment = async () => {
       try {
-        const response = await fetch(config.endpoint, {
+        const response = await apiFetch(config.endpoint, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(config.body)
+          body: config.body
         });
 
         const raw = await response.text();

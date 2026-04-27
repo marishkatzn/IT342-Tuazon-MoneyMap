@@ -1,6 +1,8 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
+import { apiFetch } from '../lib/api';
+import logoImage from '../assets/m-logo.png';
 
 const Sidebar = () => {
   const navigate = useNavigate();
@@ -9,6 +11,7 @@ const Sidebar = () => {
   const [savingsRate, setSavingsRate] = useState(0);
   const [savedThisMonth, setSavedThisMonth] = useState(0);
   const [momChange, setMomChange] = useState(0);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
 
   useEffect(() => {
     const fetchSidebarData = async () => {
@@ -17,23 +20,25 @@ const Sidebar = () => {
         setSavingsRate(0);
         setSavedThisMonth(0);
         setMomChange(0);
+        setUnreadNotifications(0);
         return;
       }
 
       try {
-        const [goalsResponse, incomesResponse, contributionsResponse] = await Promise.all([
-          fetch(`http://localhost:8081/api/goals/${user.id}`),
-          fetch(`http://localhost:8081/api/income/${user.id}`),
-          fetch(`http://localhost:8081/api/contributions/${user.id}`)
+        const [goalsResponse, incomesResponse, contributionsResponse, notificationsResponse] = await Promise.all([
+          apiFetch(`/goals/${user.id}`),
+          apiFetch(`/income/${user.id}`),
+          apiFetch(`/contributions/${user.id}`),
+          apiFetch(`/notifications/${user.id}`)
         ]);
 
-        if (goalsResponse.ok) {
-          const goals = await goalsResponse.json();
-          setGoalCount(goals.length);
-        }
-
+        const goals = goalsResponse.ok ? await goalsResponse.json() : [];
         const incomes = incomesResponse.ok ? await incomesResponse.json() : [];
         const contributions = contributionsResponse.ok ? await contributionsResponse.json() : [];
+        const notifications = notificationsResponse.ok ? await notificationsResponse.json() : [];
+
+        setGoalCount(goals.length);
+        setUnreadNotifications(notifications.filter((notification) => !notification.read).length);
 
         const now = new Date();
         const currentMonth = now.getMonth();
@@ -92,76 +97,114 @@ const Sidebar = () => {
   const userInitial = userName.charAt(0).toUpperCase();
   const currentMonthLabel = new Date().toLocaleString('en-US', { month: 'long' });
   const trendLabel = momChange >= 0 ? `Up ${momChange}% MoM` : `Down ${Math.abs(momChange)}% MoM`;
+  const compactSavedThisMonth = savedThisMonth.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
   return (
     <aside className="sidebar">
-      <div className="sb-logo">
-        <div className="sb-logo-icon">MM</div>
+      <NavLink to="/dashboard" className="sb-logo" aria-label="Go to dashboard">
+        <div className="sb-logo-icon">
+          <img src={logoImage} alt="MoneyMap logo" className="sb-logo-img" />
+        </div>
         <div>
           <div className="sb-logo-text">MoneyMap</div>
           <div className="sb-logo-sub">savings tracker</div>
         </div>
-      </div>
-
-      <button
-        type="button"
-        className="sb-user"
-        onClick={() => navigate('/profile')}
-        style={{ cursor: 'pointer', textAlign: 'left', background: 'transparent', border: '1px solid var(--border)' }}
-      >
-        {user?.pictureUrl ? (
-          <img
-            src={user.pictureUrl}
-            alt={`${userName} avatar`}
-            className="sb-avatar"
-            style={{ objectFit: 'cover', padding: 0, overflow: 'hidden' }}
-          />
-        ) : (
-          <div className="sb-avatar">{userInitial}</div>
-        )}
-        <div>
-          <div className="sb-uname">{userName}</div>
-          <div className="sb-urole">Personal</div>
-        </div>
-      </button>
+      </NavLink>
 
       <div className="sb-nav">
+        <button
+          type="button"
+          className="sb-user"
+          onClick={() => navigate('/profile')}
+          style={{ cursor: 'pointer', textAlign: 'left', background: 'transparent' }}
+        >
+          {user?.pictureUrl ? (
+            <img
+              src={user.pictureUrl}
+              alt={`${userName} avatar`}
+              className="sb-avatar"
+              style={{ objectFit: 'cover', padding: 0, overflow: 'hidden' }}
+            />
+          ) : (
+            <div className="sb-avatar">{userInitial}</div>
+          )}
+          <div className="sb-user-meta">
+            <div className="sb-uname">{userName}</div>
+            <div className="sb-urole">Personal workspace</div>
+          </div>
+          <div className="sb-user-arrow">{'>'}</div>
+        </button>
+
         <div className="sb-sec">Main</div>
 
         <NavLink to="/dashboard" className={({ isActive }) => `ni ${isActive ? 'active' : ''}`}>
+          <span className="ni-ico">D</span>
           <span className="ni-label">Dashboard</span>
         </NavLink>
 
         <NavLink to="/income" className={({ isActive }) => `ni ${isActive ? 'active' : ''}`}>
+          <span className="ni-ico">$</span>
           <span className="ni-label">Income</span>
         </NavLink>
 
         <NavLink to="/goals" className={({ isActive }) => `ni ${isActive ? 'active' : ''}`}>
+          <span className="ni-ico">G</span>
           <span className="ni-label">Goals</span>
           {goalCount > 0 && <span className="ni-badge">{goalCount}</span>}
         </NavLink>
 
-        <div className="sb-sec">Savings</div>
-
-        <NavLink to="/allocation" className={({ isActive }) => `ni ${isActive ? 'active' : ''}`}>
-          <span className="ni-label">Allocate Funds</span>
-        </NavLink>
+        <div className="sb-sec">Actions</div>
 
         <NavLink to="/contributions" className={({ isActive }) => `ni ${isActive ? 'active' : ''}`}>
+          <span className="ni-ico">+</span>
           <span className="ni-label">Add Contribution</span>
         </NavLink>
 
-      </div>
+        <div className="sb-sec">Account</div>
 
-      <div className="sb-rate">
-        <div className="sb-rate-lbl">Savings Rate · {currentMonthLabel}</div>
-        <div className="sb-rate-val">{savingsRate}%</div>
-        <div className="sb-rate-bar">
-          <div className="sb-rate-fill" style={{ width: `${savingsRate}%` }}></div>
-        </div>
-        <div className="sb-rate-foot">
-          <span>{trendLabel}</span>
-          <span>${savedThisMonth.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} saved</span>
+        <NavLink to="/notifications" className={({ isActive }) => `ni ${isActive ? 'active' : ''}`}>
+          <span className="ni-ico">N</span>
+          <span className="ni-label">Notifications</span>
+          {unreadNotifications > 0 && <span className="ni-badge r">{unreadNotifications}</span>}
+        </NavLink>
+
+        <NavLink to="/profile" className={({ isActive }) => `ni ${isActive ? 'active' : ''}`}>
+          <span className="ni-ico">P</span>
+          <span className="ni-label">Profile</span>
+        </NavLink>
+
+        <NavLink to="/signout" className={({ isActive }) => `ni ${isActive ? 'active' : ''}`}>
+          <span className="ni-ico">O</span>
+          <span className="ni-label">Sign Out</span>
+        </NavLink>
+
+        <div className="sb-spacer"></div>
+
+        <div className="sb-insight">
+          <div className="sb-insight-head">
+            <div>
+              <div className="sb-insight-kicker">This Month</div>
+              <div className="sb-insight-title">Savings Pulse</div>
+            </div>
+            <div className="sb-insight-chip">{savingsRate}%</div>
+          </div>
+          <div className="sb-rate-bar">
+            <div className="sb-rate-fill" style={{ width: `${savingsRate}%` }}></div>
+          </div>
+          <div className="sb-insight-grid">
+            <div className="sb-mini">
+              <div className="sb-mini-label">Saved</div>
+              <div className="sb-mini-value">${compactSavedThisMonth}</div>
+            </div>
+            <div className="sb-mini">
+              <div className="sb-mini-label">Goals</div>
+              <div className="sb-mini-value">{goalCount}</div>
+            </div>
+          </div>
+          <div className="sb-rate-foot">
+            <span>{currentMonthLabel}</span>
+            <span>{trendLabel}</span>
+          </div>
         </div>
       </div>
     </aside>

@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import Button from '../components/Button';
+import logoImage from '../assets/m-logo.png';
 
 const LandingPage = () => {
     return (
@@ -10,6 +11,23 @@ const LandingPage = () => {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '4rem' }}>
                     {/* Left Content */}
                     <div style={{ flex: '1 1 500px', maxWidth: '600px' }}>
+                        <div style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            marginBottom: '1.25rem',
+                            padding: '10px 14px',
+                            borderRadius: '18px',
+                            background: 'rgba(255,255,255,0.03)',
+                            border: '1px solid rgba(255,255,255,0.08)'
+                        }}>
+                            <img src={logoImage} alt="MoneyMap logo" style={{ width: '44px', height: '44px', objectFit: 'contain', display: 'block' }} />
+                            <div>
+                                <div style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-main)', letterSpacing: '-0.03em' }}>MoneyMap</div>
+                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', letterSpacing: '0.14em', textTransform: 'uppercase' }}>Savings Tracker</div>
+                            </div>
+                        </div>
+
                         <div style={{
                             display: 'inline-block',
                             padding: '8px 20px',

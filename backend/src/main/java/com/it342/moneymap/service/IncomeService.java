@@ -323,6 +323,7 @@ public class IncomeService {
         dto.setDate(income.getDate());
         dto.setStatus(income.getStatus());
         dto.setNotes(income.getNotes());
+        dto.setCheckoutUrl(income.getCheckoutUrl());
         return dto;
     }
 }

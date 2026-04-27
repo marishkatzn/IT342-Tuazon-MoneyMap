@@ -2,6 +2,7 @@ import React, { useContext, useState, useRef, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { User as UserIcon, LogOut, ChevronDown, LayoutDashboard, Settings } from 'lucide-react';
+import logoImage from '../assets/m-logo.png';
 
 const Navbar = () => {
     const { user } = useContext(AuthContext);
@@ -38,19 +39,18 @@ const Navbar = () => {
             <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <Link to={user ? "/dashboard" : "/register"} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <div style={{
-                        width: '32px',
-                        height: '32px',
-                        background: 'var(--primary)',
-                        borderRadius: '10px',
+                        width: '34px',
+                        height: '34px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        fontSize: '18px',
-                        fontWeight: 'bold',
-                        color: 'white',
-                        boxShadow: '0 4px 10px rgba(34, 197, 94, 0.3)'
+                        flexShrink: 0
                     }}>
-                        M
+                        <img
+                            src={logoImage}
+                            alt="MoneyMap logo"
+                            style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+                        />
                     </div>
                     <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-main)', letterSpacing: '-0.5px' }}>
                         MoneyMap

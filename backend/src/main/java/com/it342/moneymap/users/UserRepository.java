@@ -1,0 +1,13 @@
+package com.it342.moneymap.users;
+
+import com.it342.moneymap.users.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.Optional;
+
+public interface UserRepository extends JpaRepository<User, Long> {
+
+  Optional<User> findByEmail(String email);
+
+  Optional<User> findByProviderSubject(String providerSubject);
+
+}

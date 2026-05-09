@@ -3,18 +3,18 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider } from './context/AuthContext';
 
 // Public Pages
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Success from './pages/Success';
+import Login from './features/auth/Login';
+import Register from './features/auth/Register';
+import Success from './features/payments/Success';
 
 // Protected Pages
-import Dashboard from './pages/Dashboard';
-import Income from './pages/Income';
-import Goals from './pages/Goals';
-import Contributions from './pages/Contributions';
-import Notifications from './pages/Notifications';
-import Profile from './pages/Profile';
-import SignOut from './pages/SignOut';
+import Dashboard from './features/dashboard/Dashboard';
+import Income from './features/income/Income';
+import Goals from './features/goals/Goals';
+import Contributions from './features/contributions/Contributions';
+import Notifications from './features/notifications/Notifications';
+import Profile from './features/account/Profile';
+import SignOut from './features/auth/SignOut';
 
 // Layouts and Guards
 import DashboardLayout from './components/DashboardLayout';

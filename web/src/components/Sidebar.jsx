@@ -118,16 +118,7 @@ const Sidebar = () => {
           onClick={() => navigate('/profile')}
           style={{ cursor: 'pointer', textAlign: 'left', background: 'transparent' }}
         >
-          {user?.pictureUrl ? (
-            <img
-              src={user.pictureUrl}
-              alt={`${userName} avatar`}
-              className="sb-avatar"
-              style={{ objectFit: 'cover', padding: 0, overflow: 'hidden' }}
-            />
-          ) : (
-            <div className="sb-avatar">{userInitial}</div>
-          )}
+          <div className="sb-avatar">{userInitial}</div>
           <div className="sb-user-meta">
             <div className="sb-uname">{userName}</div>
             <div className="sb-urole">Personal workspace</div>

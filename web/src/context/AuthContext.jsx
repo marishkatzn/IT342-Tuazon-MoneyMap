@@ -9,8 +9,7 @@ const sanitizeUserForStorage = (user) => {
         return user;
     }
 
-    const { pictureUrl, ...safeUser } = user;
-    return safeUser;
+    return { ...user };
 };
 
 const buildStoredSession = (sessionData) => ({
